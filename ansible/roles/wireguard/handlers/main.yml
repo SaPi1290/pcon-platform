@@ -1,0 +1,8 @@
+---
+- name: WireGuard neu laden
+  ansible.builtin.shell: |
+    set -euo pipefail
+    wg syncconf {{ wireguard_interface }} <(wg-quick strip {{ wireguard_interface }})
+  args:
+    executable: /bin/bash
+  changed_when: true

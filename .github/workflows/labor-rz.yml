@@ -134,9 +134,13 @@ jobs:
 
       - name: Zusammenfassung
         run: |
+          WG_PUB=$(ssh pcon@${{ steps.ip.outputs.ipv4 }} cat /etc/pcon-wireguard-public 2>/dev/null || echo "noch nicht eingerichtet")
+          echo "::notice title=WireGuard-Server::Endpoint ${{ steps.ip.outputs.ipv4 }}:51820 / PublicKey ${WG_PUB}"
           {
             echo "### Labor-RZ bereit"
             echo ""
             echo "- IPv4: \`${{ steps.ip.outputs.ipv4 }}\`"
             echo "- Zugang: \`ssh pcon@${{ steps.ip.outputs.ipv4 }}\`"
+            echo "- WireGuard-Endpoint: \`${{ steps.ip.outputs.ipv4 }}:51820\`"
+            echo "- WireGuard-PublicKey Server: \`${WG_PUB}\`"
           } >> "$GITHUB_STEP_SUMMARY"

@@ -8,6 +8,9 @@ table inet filter {
     ct state established,related accept
     ct state invalid drop
     iif "lo" accept
+{% for ifc in hardening_trusted_interfaces %}
+    iifname "{{ ifc }}" accept
+{% endfor %}
     meta l4proto { icmp, ipv6-icmp } accept
     tcp dport { {{ hardening_tcp_ports | join(', ') }} } accept
     udp dport { {{ hardening_udp_ports | join(', ') }} } accept

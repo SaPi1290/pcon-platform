@@ -1,0 +1,58 @@
+---
+- name: WireGuard installieren
+  ansible.builtin.apt:
+    name: wireguard-tools
+    state: present
+
+- name: Verzeichnis für WireGuard absichern
+  ansible.builtin.file:
+    path: /etc/wireguard
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Server-Schlüssel einmalig auf dem Server erzeugen
+  ansible.builtin.shell: |
+    set -euo pipefail
+    umask 077
+    wg genkey > /etc/wireguard/server.key
+    wg pubkey < /etc/wireguard/server.key > /etc/wireguard/server.pub
+  args:
+    creates: /etc/wireguard/server.key
+    executable: /bin/bash
+
+- name: Privaten Server-Schlüssel lesen
+  ansible.builtin.slurp:
+    src: /etc/wireguard/server.key
+  register: wireguard_server_key
+  no_log: true
+
+- name: Öffentlichen Server-Schlüssel lesen
+  ansible.builtin.slurp:
+    src: /etc/wireguard/server.pub
+  register: wireguard_server_pub
+
+- name: WireGuard-Konfiguration schreiben
+  ansible.builtin.template:
+    src: wg0.conf.j2
+    dest: "/etc/wireguard/{{ wireguard_interface }}.conf"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  notify: WireGuard neu laden
+
+- name: WireGuard aktivieren
+  ansible.builtin.service:
+    name: "wg-quick@{{ wireguard_interface }}"
+    state: started
+    enabled: true
+
+- name: Öffentlichen Server-Schlüssel für die Pipeline ablegen
+  ansible.builtin.copy:
+    dest: /etc/pcon-wireguard-public
+    content: "{{ wireguard_server_pub.content | b64decode }}"
+    owner: root
+    group: root
+    mode: "0644"

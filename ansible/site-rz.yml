@@ -1,9 +1,10 @@
 ---
 # Konfiguration der Labor-Control-Plane.
-# Weitere Rollen (wireguard, step-ca, gitea, zabbix, caddy, pcon-api) folgen in eigenen Pull Requests.
+# Weitere Rollen (step-ca, gitea, zabbix, caddy, pcon-api) folgen in eigenen Pull Requests.
 - name: Labor-Control-Plane konfigurieren
   hosts: rz
   become: true
   roles:
     - base
     - hardening
+    - wireguard
