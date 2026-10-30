@@ -1,5 +1,8 @@
 ---
 # Eingehende Ports der Labor-Control-Plane (Host-Firewall).
+# SSH (22) bleibt hier bewusst offen: Gesperrt wird es aus dem Internet über die
+# Hetzner-Firewall. So funktioniert der Notfallschalter RZ_SSH_OEFFENTLICH auch dann,
+# wenn das VPN ausfällt (ein Login über die Hetzner-Webkonsole ist ohne Passwort nicht möglich).
 hardening_tcp_ports: [22, 80, 443]
 hardening_udp_ports: [51820]
 # Schnittstellen, deren Verkehr komplett erlaubt ist (Admin-VPN).

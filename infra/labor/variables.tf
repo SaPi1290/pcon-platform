@@ -19,3 +19,9 @@ variable "location" {
   type        = string
   default     = "nbg1"
 }
+
+variable "ssh_oeffentlich" {
+  description = "Nur im Notfall: SSH aus dem Internet erlauben (Standard: nur über VPN)."
+  type        = bool
+  default     = false
+}
