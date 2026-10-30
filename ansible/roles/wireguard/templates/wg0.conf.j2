@@ -1,0 +1,12 @@
+# Verwaltet durch Ansible (pcon-platform). Manuelle Änderungen werden überschrieben.
+[Interface]
+Address = {{ wireguard_server_address }}
+ListenPort = {{ wireguard_port }}
+PrivateKey = {{ wireguard_server_key.content | b64decode | trim }}
+{% for peer in wireguard_peers %}
+
+# {{ peer.name }}
+[Peer]
+PublicKey = {{ peer.public_key }}
+AllowedIPs = {{ peer.address }}/32
+{% endfor %}

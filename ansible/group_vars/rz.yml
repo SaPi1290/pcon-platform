@@ -1,0 +1,7 @@
+---
+# Admin-VPN der Labor-Control-Plane. Nur öffentliche Schlüssel, die sind nicht geheim.
+# Neues Gerät: Eintrag ergänzen, nächste freie Adresse wählen.
+wireguard_peers:
+  - name: admin-pc
+    address: 10.66.0.10
+    public_key: "+zBwByJCRJMq0T2yKSDrXZ5upSSwZtJfS8E4PJ5phj8="
