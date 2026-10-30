@@ -66,6 +66,26 @@ jobs:
           set -o pipefail
           tofu -chdir=$TOFU_DIR plan -input=false -lock=false -no-color 2>&1 | tee tofu.log || { .github/scripts/fehler-melden.sh tofu.log; exit 1; }
 
+      - name: VPN-Schlüssel der Pipeline prüfen
+        env:
+          WG_CI_PRIVATE_KEY: ${{ secrets.WG_CI_PRIVATE_KEY }}
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq wireguard-tools >/dev/null
+          erwartet=$(grep -A2 'name: ci-pipeline' ansible/group_vars/rz.yml | sed -n 's/.*public_key: "\(.*\)"/\1/p')
+          # Leerzeichen, Zeilenumbrüche und ein mitkopiertes 'PrivateKey =' entfernen
+          WG_CI_PRIVATE_KEY=$(printf '%s' "$WG_CI_PRIVATE_KEY" | tr -d ' \t\r\n' | sed 's/^PrivateKey//; s/^=//')
+          laenge=${#WG_CI_PRIVATE_KEY}
+          if [ -z "$WG_CI_PRIVATE_KEY" ]; then
+            echo "::error title=VPN-Schlüssel::Secret WG_CI_PRIVATE_KEY fehlt."; exit 1
+          fi
+          if ! tatsaechlich=$(printf '%s' "$WG_CI_PRIVATE_KEY" | wg pubkey 2>/dev/null); then
+            echo "::error title=VPN-Schlüssel::Secret WG_CI_PRIVATE_KEY ist kein gültiger Schlüssel (Länge ${laenge}, erwartet 44). Nur den Wert hinter 'PrivateKey = ' eintragen."; exit 1
+          fi
+          if [ "$tatsaechlich" != "$erwartet" ]; then
+            echo "::error title=VPN-Schlüssel::Secret passt nicht zum öffentlichen Schlüssel im Repo. Abgeleitet: ${tatsaechlich} / erwartet: ${erwartet}"; exit 1
+          fi
+          echo "::notice title=VPN-Schlüssel::Secret passt zum öffentlichen Schlüssel ${erwartet}."
+
       - name: Ansible prüfen
         run: |
           pip install --quiet ansible-core ansible-lint
@@ -130,6 +150,7 @@ jobs:
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq wireguard-tools >/dev/null
           sudo install -d -m 700 /etc/wireguard
+          WG_CI_PRIVATE_KEY=$(printf '%s' "$WG_CI_PRIVATE_KEY" | tr -d ' \t\r\n' | sed 's/^PrivateKey//; s/^=//')
           printf '[Interface]\nPrivateKey = %s\nAddress = 10.66.0.20/32\n\n[Peer]\nPublicKey = %s\nEndpoint = %s:51820\nAllowedIPs = 10.66.0.1/32\nPersistentKeepalive = 25\n' \
             "$WG_CI_PRIVATE_KEY" "$(cat .github/wireguard-server.pub)" "${{ steps.ip.outputs.ipv4 }}" \
             | sudo tee /etc/wireguard/wg0.conf >/dev/null
@@ -142,6 +163,8 @@ jobs:
             echo "host=10.66.0.1" >> "$GITHUB_OUTPUT"
             echo "::notice title=Verbindung::Pipeline arbeitet über das VPN (10.66.0.1)."
           else
+            hs=$(sudo wg show wg0 latest-handshakes | awk '{print $2}')
+            echo "::warning title=VPN-Diagnose::Letzter Handshake (Unix-Zeit, 0 = nie): ${hs:-keiner}"
             echo "host=${{ steps.ip.outputs.ipv4 }}" >> "$GITHUB_OUTPUT"
             echo "::warning title=Verbindung::VPN nicht erreichbar, Rückfall auf öffentliche IP."
           fi
