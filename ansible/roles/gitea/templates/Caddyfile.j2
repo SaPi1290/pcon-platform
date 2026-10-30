@@ -1,0 +1,10 @@
+# Verwaltet durch Ansible (pcon-platform).
+{{ pcon_domain }} {
+	@admin remote_ip {{ gitea_allowed_networks | join(' ') }}
+	handle @admin {
+		reverse_proxy 127.0.0.1:3000
+	}
+	handle {
+		respond "Zugriff nur über das Pcon-Admin-VPN." 403
+	}
+}

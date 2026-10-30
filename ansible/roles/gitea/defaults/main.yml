@@ -1,0 +1,9 @@
+---
+gitea_dir: /opt/pcon/rz
+gitea_data_dir: /var/lib/pcon/gitea
+caddy_data_dir: /var/lib/pcon/caddy
+gitea_image: docker.gitea.com/gitea:1
+caddy_image: caddy:2
+gitea_admin_user: pcon-admin
+# Nur aus diesen Netzen ist Gitea erreichbar (Admin-VPN).
+gitea_allowed_networks: [10.66.0.0/24]

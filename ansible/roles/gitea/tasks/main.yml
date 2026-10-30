@@ -1,0 +1,62 @@
+---
+- name: Verzeichnisse anlegen
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner | default('root') }}"
+    group: "{{ item.owner | default('root') }}"
+    mode: "{{ item.mode | default('0750') }}"
+  loop:
+    - { path: "{{ gitea_dir }}" }
+    - { path: "{{ caddy_data_dir }}" }
+    - { path: "{{ gitea_data_dir }}", owner: "1000" }
+
+- name: Compose-Datei schreiben
+  ansible.builtin.template:
+    src: compose.yml.j2
+    dest: "{{ gitea_dir }}/compose.yml"
+    owner: root
+    group: root
+    mode: "0640"
+  notify: Dienste neu starten
+
+- name: Caddy-Konfiguration schreiben
+  ansible.builtin.template:
+    src: Caddyfile.j2
+    dest: "{{ gitea_dir }}/Caddyfile"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Caddy neu laden
+
+- name: Dienste starten
+  ansible.builtin.command:
+    cmd: docker compose up -d --remove-orphans
+    chdir: "{{ gitea_dir }}"
+  register: gitea_compose_up
+  changed_when: "'Started' in gitea_compose_up.stderr or 'Created' in gitea_compose_up.stderr"
+
+- name: Warten, bis Gitea antwortet
+  ansible.builtin.uri:
+    url: http://127.0.0.1:3000/api/healthz
+    status_code: 200
+  register: gitea_health
+  until: gitea_health.status == 200
+  retries: 30
+  delay: 5
+
+- name: Gitea-Admin einmalig mit zufälligem Passwort anlegen
+  ansible.builtin.shell: |
+    set -euo pipefail
+    umask 077
+    pw=$(openssl rand -base64 24)
+    docker compose exec -T -u git gitea gitea admin user create \
+      --admin --username {{ gitea_admin_user }} \
+      --email {{ gitea_admin_user }}@{{ pcon_domain }} \
+      --password "$pw" --must-change-password
+    printf '%s\n' "$pw" > /root/gitea-admin-erstpasswort
+  args:
+    chdir: "{{ gitea_dir }}"
+    creates: /root/gitea-admin-erstpasswort
+    executable: /bin/bash
+  no_log: true
