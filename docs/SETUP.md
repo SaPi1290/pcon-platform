@@ -46,6 +46,10 @@ Repo → **Settings → Secrets and variables → Actions**
 | `TFSTATE_ENDPOINT` | `https://fsn1.your-objectstorage.com` |
 | `ADMIN_SSH_PUBLIC_KEY` | Inhalt von `pcon-admin.pub` |
 | `CI_SSH_PUBLIC_KEY` | Inhalt von `pcon-ci.pub` |
+| `RZ_SERVER_TYPE` | optional, Standard `cx33` (Alternative: `cpx32`) |
+| `RZ_LOCATION` | optional, Standard `nbg1` (Alternative: `fsn1`) |
+
+Meldet Hetzner `resource_unavailable`, ist der Servertyp am Standort ausverkauft: `RZ_LOCATION` oder `RZ_SERVER_TYPE` ändern und den Lauf neu starten.
 
 ## 5. Umgebung „labor“ mit Freigabe
 

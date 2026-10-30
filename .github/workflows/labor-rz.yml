@@ -30,6 +30,9 @@ env:
   AWS_SECRET_ACCESS_KEY: ${{ secrets.TFSTATE_SECRET_KEY }}
   TF_VAR_admin_ssh_public_key: ${{ vars.ADMIN_SSH_PUBLIC_KEY }}
   TF_VAR_ci_ssh_public_key: ${{ vars.CI_SSH_PUBLIC_KEY }}
+  # Optional: Servertyp und Standort ohne Codeänderung umstellen (GitHub-Variablen)
+  TF_VAR_server_type: ${{ vars.RZ_SERVER_TYPE || 'cx33' }}
+  TF_VAR_location: ${{ vars.RZ_LOCATION || 'nbg1' }}
   TF_IN_AUTOMATION: "1"
 
 jobs:
@@ -59,7 +62,9 @@ jobs:
         run: tofu -chdir=$TOFU_DIR validate
 
       - name: Plan erstellen (zeigt, was sich ändern würde)
-        run: tofu -chdir=$TOFU_DIR plan -input=false -lock=false
+        run: |
+          set -o pipefail
+          tofu -chdir=$TOFU_DIR plan -input=false -lock=false -no-color 2>&1 | tee tofu.log || { .github/scripts/fehler-melden.sh tofu.log; exit 1; }
 
       - name: Ansible prüfen
         run: |
@@ -91,7 +96,9 @@ jobs:
           tofu -chdir=$TOFU_DIR init -input=false -backend-config=backend.hcl
 
       - name: Server und Firewall anlegen bzw. aktualisieren
-        run: tofu -chdir=$TOFU_DIR apply -input=false -auto-approve
+        run: |
+          set -o pipefail
+          tofu -chdir=$TOFU_DIR apply -input=false -auto-approve -no-color 2>&1 | tee tofu.log || { .github/scripts/fehler-melden.sh tofu.log; exit 1; }
 
       - name: IP-Adresse ermitteln
         id: ip

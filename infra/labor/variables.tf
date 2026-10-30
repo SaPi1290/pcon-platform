@@ -17,5 +17,5 @@ variable "server_type" {
 variable "location" {
   description = "Hetzner-Standort in Deutschland (fsn1 = Falkenstein, nbg1 = Nürnberg)."
   type        = string
-  default     = "fsn1"
+  default     = "nbg1"
 }
