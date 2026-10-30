@@ -72,6 +72,8 @@ jobs:
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq wireguard-tools >/dev/null
           erwartet=$(grep -A2 'name: ci-pipeline' ansible/group_vars/rz.yml | sed -n 's/.*public_key: "\(.*\)"/\1/p')
+          # Leerzeichen und Zeilenumbrüche aus dem Kopieren entfernen
+          WG_CI_PRIVATE_KEY=$(printf '%s' "$WG_CI_PRIVATE_KEY" | tr -d ' \t\r\n')
           laenge=${#WG_CI_PRIVATE_KEY}
           if [ -z "$WG_CI_PRIVATE_KEY" ]; then
             echo "::error title=VPN-Schlüssel::Secret WG_CI_PRIVATE_KEY fehlt."; exit 1
@@ -148,6 +150,7 @@ jobs:
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq wireguard-tools >/dev/null
           sudo install -d -m 700 /etc/wireguard
+          WG_CI_PRIVATE_KEY=$(printf '%s' "$WG_CI_PRIVATE_KEY" | tr -d ' \t\r\n')
           printf '[Interface]\nPrivateKey = %s\nAddress = 10.66.0.20/32\n\n[Peer]\nPublicKey = %s\nEndpoint = %s:51820\nAllowedIPs = 10.66.0.1/32\nPersistentKeepalive = 25\n' \
             "$WG_CI_PRIVATE_KEY" "$(cat .github/wireguard-server.pub)" "${{ steps.ip.outputs.ipv4 }}" \
             | sudo tee /etc/wireguard/wg0.conf >/dev/null
