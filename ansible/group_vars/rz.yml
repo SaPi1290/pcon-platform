@@ -1,4 +1,7 @@
 ---
+# Öffentlicher DNS-Name der Labor-Control-Plane (A-Eintrag bei Strato).
+pcon_domain: rz-labor.pitz-consulting.de
+
 # Admin-VPN der Labor-Control-Plane. Nur öffentliche Schlüssel, die sind nicht geheim.
 # Neues Gerät: Eintrag ergänzen, nächste freie Adresse wählen.
 wireguard_peers:

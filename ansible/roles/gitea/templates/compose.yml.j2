@@ -1,0 +1,31 @@
+# Verwaltet durch Ansible (pcon-platform).
+services:
+  caddy:
+    image: {{ gitea_caddy_image }}
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - {{ gitea_caddy_data_dir }}/data:/data
+      - {{ gitea_caddy_data_dir }}/config:/config
+
+  gitea:
+    image: {{ gitea_image }}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - {{ gitea_data_dir }}:/data
+    environment:
+      USER_UID: "1000"
+      USER_GID: "1000"
+      GITEA__server__DOMAIN: "{{ pcon_domain }}"
+      GITEA__server__ROOT_URL: "https://{{ pcon_domain }}/"
+      GITEA__server__HTTP_PORT: "3000"
+      GITEA__server__DISABLE_SSH: "true"
+      GITEA__database__DB_TYPE: sqlite3
+      GITEA__security__INSTALL_LOCK: "true"
+      GITEA__service__DISABLE_REGISTRATION: "true"
+      GITEA__service__REQUIRE_SIGNIN_VIEW: "true"
+      GITEA__packages__ENABLED: "true"
+      GITEA__log__LEVEL: Info

@@ -10,4 +10,5 @@ base_packages:
   - htop
   - jq
   - nftables
+  - openssl
   - rsync

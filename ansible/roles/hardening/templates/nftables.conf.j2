@@ -1,8 +1,17 @@
 #!/usr/sbin/nft -f
 # Verwaltet durch Ansible (pcon-platform). Manuelle Änderungen werden überschrieben.
-flush ruleset
+#
+# Bewusst KEIN "flush ruleset": Docker legt eigene Regeln an, die erhalten bleiben müssen.
+# Pcon-Regeln liegen in einer eigenen Tabelle "inet pcon" und werden nur dort ersetzt.
 
-table inet filter {
+# Alte Tabelle aus der ersten Version entfernen (blockierte Docker-Weiterleitung).
+table inet filter
+delete table inet filter
+
+table inet pcon
+delete table inet pcon
+
+table inet pcon {
   chain input {
     type filter hook input priority 0; policy drop;
     ct state established,related accept
@@ -14,11 +23,5 @@ table inet filter {
     meta l4proto { icmp, ipv6-icmp } accept
     tcp dport { {{ hardening_tcp_ports | join(', ') }} } accept
     udp dport { {{ hardening_udp_ports | join(', ') }} } accept
-  }
-  chain forward {
-    type filter hook forward priority 0; policy drop;
-  }
-  chain output {
-    type filter hook output priority 0; policy accept;
   }
 }
