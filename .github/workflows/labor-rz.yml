@@ -1,0 +1,135 @@
+name: Labor-RZ
+
+# Pull Request  -> prüfen und Plan anzeigen (es wird nichts verändert)
+# Merge in main -> nach Freigabe in der Umgebung "labor" anlegen und konfigurieren
+on:
+  pull_request:
+    paths:
+      - "infra/labor/**"
+      - "ansible/**"
+      - ".github/workflows/labor-rz.yml"
+  push:
+    branches: [main]
+    paths:
+      - "infra/labor/**"
+      - "ansible/**"
+      - ".github/workflows/labor-rz.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: labor-rz
+  cancel-in-progress: false
+
+env:
+  TOFU_DIR: infra/labor
+  HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+  AWS_ACCESS_KEY_ID: ${{ secrets.TFSTATE_ACCESS_KEY }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.TFSTATE_SECRET_KEY }}
+  TF_VAR_admin_ssh_public_key: ${{ vars.ADMIN_SSH_PUBLIC_KEY }}
+  TF_VAR_ci_ssh_public_key: ${{ vars.CI_SSH_PUBLIC_KEY }}
+  TF_IN_AUTOMATION: "1"
+
+jobs:
+  pruefen:
+    name: Prüfen und Plan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_wrapper: false
+
+      - name: Formatierung prüfen
+        run: tofu -chdir=$TOFU_DIR fmt -check -recursive
+
+      - name: Initialisieren
+        run: |
+          cat > $TOFU_DIR/backend.hcl <<EOF
+          bucket    = "${{ vars.TFSTATE_BUCKET }}"
+          region    = "${{ vars.TFSTATE_REGION }}"
+          endpoints = { s3 = "${{ vars.TFSTATE_ENDPOINT }}" }
+          EOF
+          tofu -chdir=$TOFU_DIR init -input=false -backend-config=backend.hcl
+
+      - name: Syntax prüfen
+        run: tofu -chdir=$TOFU_DIR validate
+
+      - name: Plan erstellen (zeigt, was sich ändern würde)
+        run: tofu -chdir=$TOFU_DIR plan -input=false -lock=false
+
+      - name: Ansible prüfen
+        run: |
+          pip install --quiet ansible-core ansible-lint
+          cd ansible
+          ansible-galaxy collection install -r requirements.yml
+          ansible-lint site-rz.yml
+
+  ausrollen:
+    name: Anlegen und konfigurieren
+    if: github.event_name != 'pull_request'
+    needs: pruefen
+    runs-on: ubuntu-latest
+    environment: labor
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_wrapper: false
+
+      - name: Initialisieren
+        run: |
+          cat > $TOFU_DIR/backend.hcl <<EOF
+          bucket    = "${{ vars.TFSTATE_BUCKET }}"
+          region    = "${{ vars.TFSTATE_REGION }}"
+          endpoints = { s3 = "${{ vars.TFSTATE_ENDPOINT }}" }
+          EOF
+          tofu -chdir=$TOFU_DIR init -input=false -backend-config=backend.hcl
+
+      - name: Server und Firewall anlegen bzw. aktualisieren
+        run: tofu -chdir=$TOFU_DIR apply -input=false -auto-approve
+
+      - name: IP-Adresse ermitteln
+        id: ip
+        run: echo "ipv4=$(tofu -chdir=$TOFU_DIR output -raw rz_ipv4)" >> "$GITHUB_OUTPUT"
+
+      - name: SSH-Schlüssel der Pipeline bereitstellen
+        env:
+          CI_SSH_PRIVATE_KEY: ${{ secrets.CI_SSH_PRIVATE_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$CI_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+      - name: Warten, bis der Server per SSH erreichbar ist
+        run: |
+          for i in $(seq 1 30); do
+            if ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=5 \
+                pcon@${{ steps.ip.outputs.ipv4 }} 'cloud-init status --wait >/dev/null; true'; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Server nicht erreichbar" >&2
+          exit 1
+
+      - name: Server mit Ansible konfigurieren
+        run: |
+          pip install --quiet ansible-core
+          cd ansible
+          ansible-galaxy collection install -r requirements.yml
+          printf '[rz]\n%s\n' "${{ steps.ip.outputs.ipv4 }}" > inventory.ini
+          ansible-playbook -i inventory.ini site-rz.yml
+
+      - name: Zusammenfassung
+        run: |
+          {
+            echo "### Labor-RZ bereit"
+            echo ""
+            echo "- IPv4: \`${{ steps.ip.outputs.ipv4 }}\`"
+            echo "- Zugang: \`ssh pcon@${{ steps.ip.outputs.ipv4 }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

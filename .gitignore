@@ -1,0 +1,18 @@
+# OpenTofu
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+backend.hcl
+crash.log
+
+# Ansible
+ansible/inventory.ini
+*.retry
+
+# Geheimnisse – niemals einchecken
+*.pem
+*.key
+id_*
+!id_*.pub
+.env

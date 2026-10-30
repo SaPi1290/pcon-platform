@@ -1,0 +1,4 @@
+---
+# Eingehende Ports der Labor-Control-Plane (Host-Firewall).
+hardening_tcp_ports: [22, 80, 443]
+hardening_udp_ports: [51820]

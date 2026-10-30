@@ -1,0 +1,10 @@
+---
+- name: SSH neu laden
+  ansible.builtin.service:
+    name: ssh
+    state: reloaded
+
+- name: Firewall neu laden
+  ansible.builtin.service:
+    name: nftables
+    state: reloaded

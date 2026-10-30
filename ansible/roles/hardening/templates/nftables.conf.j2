@@ -1,0 +1,21 @@
+#!/usr/sbin/nft -f
+# Verwaltet durch Ansible (pcon-platform). Manuelle Änderungen werden überschrieben.
+flush ruleset
+
+table inet filter {
+  chain input {
+    type filter hook input priority 0; policy drop;
+    ct state established,related accept
+    ct state invalid drop
+    iif "lo" accept
+    meta l4proto { icmp, ipv6-icmp } accept
+    tcp dport { {{ hardening_tcp_ports | join(', ') }} } accept
+    udp dport { {{ hardening_udp_ports | join(', ') }} } accept
+  }
+  chain forward {
+    type filter hook forward priority 0; policy drop;
+  }
+  chain output {
+    type filter hook output priority 0; policy accept;
+  }
+}

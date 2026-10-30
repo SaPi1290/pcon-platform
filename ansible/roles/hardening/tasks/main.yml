@@ -1,0 +1,41 @@
+---
+- name: SSH härten
+  ansible.builtin.template:
+    src: sshd-pcon.conf.j2
+    dest: /etc/ssh/sshd_config.d/10-pcon.conf
+    owner: root
+    group: root
+    mode: "0644"
+    validate: /usr/sbin/sshd -t -f %s
+  notify: SSH neu laden
+
+- name: Host-Firewall (nftables) schreiben
+  ansible.builtin.template:
+    src: nftables.conf.j2
+    dest: /etc/nftables.conf
+    owner: root
+    group: root
+    mode: "0755"
+    validate: /usr/sbin/nft -c -f %s
+  notify: Firewall neu laden
+
+- name: Host-Firewall aktivieren
+  ansible.builtin.service:
+    name: nftables
+    state: started
+    enabled: true
+
+- name: Kernel-Netzwerkhärtung
+  ansible.posix.sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    sysctl_file: /etc/sysctl.d/90-pcon.conf
+    reload: true
+  loop:
+    - { name: net.ipv4.conf.all.accept_redirects, value: "0" }
+    - { name: net.ipv6.conf.all.accept_redirects, value: "0" }
+    - { name: net.ipv4.conf.all.send_redirects, value: "0" }
+    - { name: net.ipv4.conf.all.rp_filter, value: "1" }
+    - { name: net.ipv4.tcp_syncookies, value: "1" }
+    - { name: kernel.kptr_restrict, value: "2" }
+    - { name: kernel.dmesg_restrict, value: "1" }
