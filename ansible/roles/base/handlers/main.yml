@@ -1,0 +1,5 @@
+---
+- name: Journald neu starten
+  ansible.builtin.service:
+    name: systemd-journald
+    state: restarted

@@ -1,0 +1,62 @@
+# Ersteinrichtung
+
+Einmalig von Hand. Danach läuft alles über Pull Requests und die Pipeline.
+
+## 1. Claude-GitHub-App installieren
+
+<https://github.com/apps/claude/installations/select_target> → Konto `SaPi1290` → **Only select repositories** → `pcon-platform`.
+
+## 2. Hetzner Object Storage für den Zustand (State)
+
+1. Cloud Console → Projekt `pcon-labor` → **Object Storage** → **Bucket erstellen**.
+   - Standort: Falkenstein (`fsn1`)
+   - Name: eindeutig, z. B. `pcon-tfstate-<kürzel>`
+   - Sichtbarkeit: **privat**
+2. **Object Storage → S3-Zugangsdaten → Zugangsdaten generieren**. Access Key und Secret Key werden nur einmal angezeigt.
+
+## 3. SSH-Schlüssel erzeugen (Windows PowerShell)
+
+```powershell
+ssh-keygen -t ed25519 -C "pcon-admin" -f $HOME\.ssh\pcon-admin
+ssh-keygen -t ed25519 -C "pcon-ci"    -f $HOME\.ssh\pcon-ci -N '""'
+```
+
+- `pcon-admin`: dein persönlicher Zugang, **mit Passphrase**.
+- `pcon-ci`: nur für die Pipeline, ohne Passphrase. Der private Teil kommt als Secret zu GitHub und wird danach lokal gelöscht.
+
+## 4. GitHub-Secrets und -Variablen
+
+Repo → **Settings → Secrets and variables → Actions**
+
+**Secrets** (Tab „Secrets“):
+
+| Name | Inhalt |
+| --- | --- |
+| `HCLOUD_TOKEN` | Hetzner API-Token (Lesen & Schreiben) |
+| `TFSTATE_ACCESS_KEY` | S3 Access Key aus Schritt 2 |
+| `TFSTATE_SECRET_KEY` | S3 Secret Key aus Schritt 2 |
+| `CI_SSH_PRIVATE_KEY` | Inhalt von `pcon-ci` (ohne `.pub`), komplett inkl. BEGIN/END-Zeilen |
+
+**Variablen** (Tab „Variables“):
+
+| Name | Inhalt |
+| --- | --- |
+| `TFSTATE_BUCKET` | Bucket-Name aus Schritt 2 |
+| `TFSTATE_REGION` | `fsn1` |
+| `TFSTATE_ENDPOINT` | `https://fsn1.your-objectstorage.com` |
+| `ADMIN_SSH_PUBLIC_KEY` | Inhalt von `pcon-admin.pub` |
+| `CI_SSH_PUBLIC_KEY` | Inhalt von `pcon-ci.pub` |
+
+## 5. Umgebung „labor“ mit Freigabe
+
+Repo → **Settings → Environments → New environment** → Name `labor` → **Required reviewers**: dich selbst eintragen → Speichern.
+
+Damit wartet jedes Ausrollen auf deinen Klick.
+
+## 6. Branch-Schutz für `main`
+
+Repo → **Settings → Branches → Add branch ruleset**:
+- Ziel: `main`
+- **Require a pull request before merging**
+- **Require status checks to pass** → „Prüfen und Plan“
+- **Block force pushes**

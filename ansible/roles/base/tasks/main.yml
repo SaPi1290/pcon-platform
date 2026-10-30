@@ -1,0 +1,61 @@
+---
+- name: Paketlisten aktualisieren und System auf aktuellen Stand bringen
+  ansible.builtin.apt:
+    update_cache: true
+    upgrade: dist
+    cache_valid_time: 3600
+
+- name: Basispakete installieren
+  ansible.builtin.apt:
+    name: "{{ base_packages }}"
+    state: present
+
+- name: Zeitzone setzen
+  community.general.timezone:
+    name: "{{ base_timezone }}"
+
+- name: Zeitsynchronisation aktivieren
+  ansible.builtin.service:
+    name: chrony
+    state: started
+    enabled: true
+
+- name: Automatische Sicherheitsupdates konfigurieren
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+      APT::Periodic::AutocleanInterval "7";
+
+- name: Verzeichnis für Journald-Einstellungen anlegen
+  ansible.builtin.file:
+    path: /etc/systemd/journald.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Journald-Größe begrenzen
+  ansible.builtin.copy:
+    dest: /etc/systemd/journald.conf.d/10-pcon.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      [Journal]
+      SystemMaxUse=1G
+  notify: Journald neu starten
+
+- name: Versionsstand des Servers dokumentieren
+  ansible.builtin.copy:
+    dest: /etc/pcon-release
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      PCON_ROLE=labor-control-plane
+      PCON_COMMIT={{ lookup('ansible.builtin.env', 'GITHUB_SHA') | default('manuell', true) }}

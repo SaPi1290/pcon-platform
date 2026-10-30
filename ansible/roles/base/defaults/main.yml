@@ -1,0 +1,13 @@
+---
+base_timezone: Europe/Berlin
+base_packages:
+  - chrony
+  - unattended-upgrades
+  - apt-listchanges
+  - ca-certificates
+  - curl
+  - gnupg
+  - htop
+  - jq
+  - nftables
+  - rsync
