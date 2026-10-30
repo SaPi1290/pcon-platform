@@ -4,4 +4,4 @@
 wireguard_peers:
   - name: admin-pc
     address: 10.66.0.10
-    public_key: PLATZHALTER
+    public_key: "+zBwByJCRJMq0T2yKSDrXZ5upSSwZtJfS8E4PJ5phj8="
