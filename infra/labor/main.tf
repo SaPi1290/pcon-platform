@@ -17,18 +17,21 @@ resource "hcloud_ssh_key" "ci" {
 }
 
 # Hetzner-Firewall vor dem Server. Zusätzlich läuft nftables auf dem Host.
-# SSH ist vorerst offen (nur Schlüssel, kein Root-Login), weil die Pipeline
-# von wechselnden GitHub-IPs zugreift. Wird nach Aufbau von WireGuard eingeschränkt.
+# SSH ist nur über das WireGuard-VPN erreichbar. Für den Notfall (z. B. Neuaufbau
+# des Servers) lässt sich SSH über die GitHub-Variable RZ_SSH_OEFFENTLICH=true öffnen.
 resource "hcloud_firewall" "rz" {
   name   = local.name
   labels = local.labels
 
-  rule {
-    description = "SSH (nur Schlüssel)"
-    direction   = "in"
-    protocol    = "tcp"
-    port        = "22"
-    source_ips  = ["0.0.0.0/0", "::/0"]
+  dynamic "rule" {
+    for_each = var.ssh_oeffentlich ? [1] : []
+    content {
+      description = "SSH NOTFALL (nur Schlüssel)"
+      direction   = "in"
+      protocol    = "tcp"
+      port        = "22"
+      source_ips  = ["0.0.0.0/0", "::/0"]
+    }
   }
 
   rule {

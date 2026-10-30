@@ -33,6 +33,8 @@ env:
   # Optional: Servertyp und Standort ohne Codeänderung umstellen (GitHub-Variablen)
   TF_VAR_server_type: ${{ vars.RZ_SERVER_TYPE || 'cx33' }}
   TF_VAR_location: ${{ vars.RZ_LOCATION || 'nbg1' }}
+  # Notfall: SSH aus dem Internet öffnen (GitHub-Variable RZ_SSH_OEFFENTLICH=true)
+  TF_VAR_ssh_oeffentlich: ${{ vars.RZ_SSH_OEFFENTLICH == 'true' }}
   TF_IN_AUTOMATION: "1"
 
 jobs:
@@ -132,18 +134,6 @@ jobs:
           printf '%s\n' "$CI_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
 
-      - name: Warten, bis der Server per SSH erreichbar ist
-        run: |
-          for i in $(seq 1 30); do
-            if ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=5 \
-                pcon@${{ steps.ip.outputs.ipv4 }} 'cloud-init status --wait >/dev/null; true'; then
-              exit 0
-            fi
-            sleep 10
-          done
-          echo "Server nicht erreichbar" >&2
-          exit 1
-
       - name: Pipeline-VPN aufbauen
         env:
           WG_CI_PRIVATE_KEY: ${{ secrets.WG_CI_PRIVATE_KEY }}
@@ -156,18 +146,26 @@ jobs:
             | sudo tee /etc/wireguard/wg0.conf >/dev/null
           sudo wg-quick up wg0
 
-      - name: Verbindungsweg festlegen
+      - name: Verbindungsweg festlegen und auf den Server warten
         id: ziel
         run: |
-          if ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 pcon@10.66.0.1 true; then
-            echo "host=10.66.0.1" >> "$GITHUB_OUTPUT"
-            echo "::notice title=Verbindung::Pipeline arbeitet über das VPN (10.66.0.1)."
-          else
-            hs=$(sudo wg show wg0 latest-handshakes | awk '{print $2}')
-            echo "::warning title=VPN-Diagnose::Letzter Handshake (Unix-Zeit, 0 = nie): ${hs:-keiner}"
-            echo "host=${{ steps.ip.outputs.ipv4 }}" >> "$GITHUB_OUTPUT"
-            echo "::warning title=Verbindung::VPN nicht erreichbar, Rückfall auf öffentliche IP."
-          fi
+          SSH="ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10"
+          for i in $(seq 1 30); do
+            if $SSH pcon@10.66.0.1 true 2>/dev/null; then
+              echo "host=10.66.0.1" >> "$GITHUB_OUTPUT"
+              echo "::notice title=Verbindung::Pipeline arbeitet über das VPN (10.66.0.1)."
+              exit 0
+            fi
+            if $SSH pcon@${{ steps.ip.outputs.ipv4 }} 'cloud-init status --wait >/dev/null; true' 2>/dev/null; then
+              echo "host=${{ steps.ip.outputs.ipv4 }}" >> "$GITHUB_OUTPUT"
+              echo "::warning title=Verbindung::VPN nicht erreichbar, Pipeline nutzt die öffentliche IP (Notfallmodus)."
+              exit 0
+            fi
+            sleep 10
+          done
+          hs=$(sudo wg show wg0 latest-handshakes | awk '{print $2}')
+          echo "::error title=Verbindung::Server weder über VPN noch öffentlich erreichbar. Letzter VPN-Handshake: ${hs:-keiner}. Bei Neuaufbau GitHub-Variable RZ_SSH_OEFFENTLICH=true setzen."
+          exit 1
 
       - name: Server mit Ansible konfigurieren
         run: |
@@ -185,7 +183,7 @@ jobs:
             echo "### Labor-RZ bereit"
             echo ""
             echo "- IPv4: \`${{ steps.ip.outputs.ipv4 }}\`"
-            echo "- Zugang: \`ssh pcon@${{ steps.ip.outputs.ipv4 }}\`"
+            echo "- Zugang (nur über VPN): \`ssh pcon@10.66.0.1\`"
             echo "- WireGuard-Endpoint: \`${{ steps.ip.outputs.ipv4 }}:51820\`"
             echo "- WireGuard-PublicKey Server: \`${WG_PUB}\`"
           } >> "$GITHUB_STEP_SUMMARY"

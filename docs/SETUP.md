@@ -48,6 +48,7 @@ Repo → **Settings → Secrets and variables → Actions**
 | `ADMIN_SSH_PUBLIC_KEY` | Inhalt von `pcon-admin.pub` |
 | `CI_SSH_PUBLIC_KEY` | Inhalt von `pcon-ci.pub` |
 | `RZ_SERVER_TYPE` | optional, Standard `cx33` (Alternative: `cpx32`) |
+| `RZ_SSH_OEFFENTLICH` | nur im Notfall `true` (SSH aus dem Internet öffnen), sonst nicht anlegen |
 | `RZ_LOCATION` | optional, Standard `nbg1` (Alternative: `fsn1`) |
 
 Meldet Hetzner `resource_unavailable`, ist der Servertyp am Standort ausverkauft: `RZ_LOCATION` oder `RZ_SERVER_TYPE` ändern und den Lauf neu starten.
@@ -65,3 +66,10 @@ Repo → **Settings → Branches → Add branch ruleset**:
 - **Require a pull request before merging**
 - **Require status checks to pass** → „Prüfen und Plan“
 - **Block force pushes**
+
+## Notfall: kein Zugang über das VPN
+
+SSH ist nur über das WireGuard-VPN (`ssh pcon@10.66.0.1`) erreichbar.
+
+1. GitHub-Variable `RZ_SSH_OEFFENTLICH` = `true` anlegen und den Lauf „Labor-RZ“ manuell starten (Actions → Labor-RZ → Run workflow). Danach ist SSH aus dem Internet offen: `ssh -i $HOME\.ssh\pcon-admin pcon@<öffentliche IP>`.
+2. Nach der Reparatur die Variable **wieder löschen** und erneut ausrollen.
