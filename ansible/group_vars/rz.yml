@@ -5,3 +5,6 @@ wireguard_peers:
   - name: admin-pc
     address: 10.66.0.10
     public_key: "+zBwByJCRJMq0T2yKSDrXZ5upSSwZtJfS8E4PJ5phj8="
+  - name: ci-pipeline
+    address: 10.66.0.20
+    public_key: "HcnLDQI3Djf7XNksRFG9lK9AUYq6p0lXJSSWHH8nWz0="

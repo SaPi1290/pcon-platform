@@ -124,17 +124,39 @@ jobs:
           echo "Server nicht erreichbar" >&2
           exit 1
 
+      - name: Pipeline-VPN aufbauen
+        env:
+          WG_CI_PRIVATE_KEY: ${{ secrets.WG_CI_PRIVATE_KEY }}
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq wireguard-tools >/dev/null
+          sudo install -d -m 700 /etc/wireguard
+          printf '[Interface]\nPrivateKey = %s\nAddress = 10.66.0.20/32\n\n[Peer]\nPublicKey = %s\nEndpoint = %s:51820\nAllowedIPs = 10.66.0.1/32\nPersistentKeepalive = 25\n' \
+            "$WG_CI_PRIVATE_KEY" "$(cat .github/wireguard-server.pub)" "${{ steps.ip.outputs.ipv4 }}" \
+            | sudo tee /etc/wireguard/wg0.conf >/dev/null
+          sudo wg-quick up wg0
+
+      - name: Verbindungsweg festlegen
+        id: ziel
+        run: |
+          if ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 pcon@10.66.0.1 true; then
+            echo "host=10.66.0.1" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Verbindung::Pipeline arbeitet über das VPN (10.66.0.1)."
+          else
+            echo "host=${{ steps.ip.outputs.ipv4 }}" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Verbindung::VPN nicht erreichbar, Rückfall auf öffentliche IP."
+          fi
+
       - name: Server mit Ansible konfigurieren
         run: |
           pip install --quiet ansible-core
           cd ansible
           ansible-galaxy collection install -r requirements.yml
-          printf '[rz]\n%s\n' "${{ steps.ip.outputs.ipv4 }}" > inventory.ini
+          printf '[rz]\n%s\n' "${{ steps.ziel.outputs.host }}" > inventory.ini
           ansible-playbook -i inventory.ini site-rz.yml
 
       - name: Zusammenfassung
         run: |
-          WG_PUB=$(ssh pcon@${{ steps.ip.outputs.ipv4 }} cat /etc/pcon-wireguard-public 2>/dev/null || echo "noch nicht eingerichtet")
+          WG_PUB=$(ssh pcon@${{ steps.ziel.outputs.host }} cat /etc/pcon-wireguard-public 2>/dev/null || echo "noch nicht eingerichtet")
           echo "::notice title=WireGuard-Server::Endpoint ${{ steps.ip.outputs.ipv4 }}:51820 / PublicKey ${WG_PUB}"
           {
             echo "### Labor-RZ bereit"
@@ -144,3 +166,7 @@ jobs:
             echo "- WireGuard-Endpoint: \`${{ steps.ip.outputs.ipv4 }}:51820\`"
             echo "- WireGuard-PublicKey Server: \`${WG_PUB}\`"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Pipeline-VPN abbauen
+        if: always()
+        run: sudo wg-quick down wg0 2>/dev/null || true

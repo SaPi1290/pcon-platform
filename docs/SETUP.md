@@ -35,6 +35,7 @@ Repo → **Settings → Secrets and variables → Actions**
 | `HCLOUD_TOKEN` | Hetzner API-Token (Lesen & Schreiben) |
 | `TFSTATE_ACCESS_KEY` | S3 Access Key aus Schritt 2 |
 | `TFSTATE_SECRET_KEY` | S3 Secret Key aus Schritt 2 |
+| `WG_CI_PRIVATE_KEY` | privater WireGuard-Schlüssel der Pipeline (nur der Schlüsselwert) |
 | `CI_SSH_PRIVATE_KEY` | Inhalt von `pcon-ci` (ohne `.pub`), komplett inkl. BEGIN/END-Zeilen |
 
 **Variablen** (Tab „Variables“):
