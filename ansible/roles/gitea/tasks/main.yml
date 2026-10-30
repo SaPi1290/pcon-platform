@@ -8,7 +8,7 @@
     mode: "{{ item.mode | default('0750') }}"
   loop:
     - { path: "{{ gitea_dir }}" }
-    - { path: "{{ caddy_data_dir }}" }
+    - { path: "{{ gitea_caddy_data_dir }}" }
     - { path: "{{ gitea_data_dir }}", owner: "1000" }
 
 - name: Compose-Datei schreiben

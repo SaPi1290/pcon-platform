@@ -1,13 +1,13 @@
 # Verwaltet durch Ansible (pcon-platform).
 services:
   caddy:
-    image: {{ caddy_image }}
+    image: {{ gitea_caddy_image }}
     restart: unless-stopped
     network_mode: host
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - {{ caddy_data_dir }}/data:/data
-      - {{ caddy_data_dir }}/config:/config
+      - {{ gitea_caddy_data_dir }}/data:/data
+      - {{ gitea_caddy_data_dir }}/config:/config
 
   gitea:
     image: {{ gitea_image }}
